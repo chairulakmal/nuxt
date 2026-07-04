@@ -419,12 +419,27 @@ const pathToNitroGlobTests = {
   '/some-:id?': '/**',
   '/other/some-:id?': '/other/**',
   '/other/some-:id()-more': '/other/**',
+  '/:slug(.*)*': '/**',
+  '/:id([^/]+)': '/**',
+  '/prefix/:slug([^/]*)*/suffix': '/prefix/**',
+  '/:locale(de|fr)/account/verify': '/**',
+  '/account/:id(\\d+)': '/account/**',
+  '/test\\:name': '/test\\:name',
   '/other/nested': '/other/nested',
 }
 
 describe('pages:pathToNitroGlob', () => {
   it.each(Object.entries(pathToNitroGlobTests))('should convert %s to %s', (path, expected) => {
     expect(pathToNitroGlob(path)).to.equal(expected)
+  })
+
+  it('warns when custom regexp constraints are mapped to broader globs', () => {
+    const warnings: string[] = []
+
+    expect(pathToNitroGlob('/:locale(de|fr)/account/verify', { warn: message => warnings.push(message) })).to.equal('/**')
+    expect(warnings).toEqual([
+      'Inline route rules for `/:locale(de|fr)/account/verify` were mapped to `/**`, which is broader than the page route because custom RegExp constraints cannot be represented by Nitro route rules.',
+    ])
   })
 })
 
