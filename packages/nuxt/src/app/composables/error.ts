@@ -2,10 +2,11 @@ import { HTTPError } from '@nuxt/nitro-server/h3'
 import { toRef } from 'vue'
 import type { Ref } from 'vue'
 import { useNuxtApp } from '../nuxt'
-import type { NuxtPayload } from '../nuxt'
+import type { NuxtApp, NuxtPayload } from '../nuxt'
+import { isBotUserAgent } from '../utils'
 import { useRouter } from './router'
 
-export const NUXT_ERROR_SIGNATURE = '__nuxt_error'
+export const NUXT_ERROR_SIGNATURE = '__nuxt_error' as const
 
 /** @since 3.0.0 */
 /* @__NO_SIDE_EFFECTS__ */
@@ -17,7 +18,7 @@ export const showError = <DataT = unknown>(
     status?: number
     statusText?: string
   }),
-) => {
+): NuxtError<DataT> => {
   const nuxtError = createError<DataT>(error)
 
   try {
@@ -36,8 +37,34 @@ export const showError = <DataT = unknown>(
   return nuxtError
 }
 
+/**
+ * Notify the app of an error caught for a crawler without rendering the error
+ * page, so the bot indexes the server-rendered HTML instead (#32137, #35338).
+ *
+ * @internal
+ */
+export const _notifyCrawlerError = (nuxtApp: NuxtApp, error: Error): Promise<void> | void => {
+  const result = nuxtApp.callHook('app:error', createError(error))
+  console.error(`[nuxt] Not rendering error page for bot with user agent \`${navigator.userAgent}\`:`, error)
+  return result
+}
+
+/**
+ * Show the error page unless the current client is a crawler, in which case the
+ * bot receives the already server-rendered HTML instead (#32137, #35338).
+ *
+ * @internal
+ */
+export const _showErrorUnlessCrawler = async (nuxtApp: NuxtApp, error: Error): Promise<void> => {
+  if (import.meta.client && isBotUserAgent(navigator.userAgent)) {
+    await _notifyCrawlerError(nuxtApp, error)
+    return
+  }
+  await nuxtApp.runWithContext(() => showError(error))
+}
+
 /** @since 3.0.0 */
-export const clearError = async (options: { redirect?: string } = {}) => {
+export const clearError = async (options: { redirect?: string } = {}): Promise<void> => {
   const nuxtApp = useNuxtApp()
   const error = useError()
 
@@ -56,7 +83,7 @@ export const isNuxtError = <DataT = unknown>(error: unknown): error is NuxtError
 }
 
 export class NuxtError<DataT = unknown> extends HTTPError<DataT> {
-  readonly [NUXT_ERROR_SIGNATURE] = true
+  readonly __nuxt_error = true as const
   readonly fatal: boolean
 
   constructor (message = '', opts: Partial<NuxtError<DataT>> = {}) {
@@ -66,7 +93,7 @@ export class NuxtError<DataT = unknown> extends HTTPError<DataT> {
 }
 
 /** @since 3.0.0 */
-export const createError = <DataT = unknown>(error: string | Error | Partial<NuxtError<DataT>>) => {
+export const createError = <DataT = unknown>(error: string | Error | Partial<NuxtError<DataT>>): NuxtError<DataT> => {
   return typeof error === 'string'
     ? new NuxtError<DataT>(error)
     : new NuxtError<DataT>(error.message, error)

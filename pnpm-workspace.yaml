@@ -25,11 +25,20 @@ overrides:
   "@nuxt/kit": "workspace:*"
   "@nuxt/schema": "workspace:*"
   nuxt: "workspace:*"
-  vite: "8.0.12"
-  vue: "3.5.34"
+  vite: "8.1.0"
+  vue: "3.5.38"
   vue-onigiri: "link:../vue-onigiri/packages/core"
 
 allowBuilds:
   '@parcel/watcher': true
   esbuild: true
   unrs-resolver: false
+
+minimumReleaseAge: 1440
+minimumReleaseAgeExclude:
+  - '@nuxt/*'
+  # Renovate security update: esbuild@0.28.1
+  - esbuild@0.28.1
+  - vue-bundle-renderer
+  # Renovate security update: undici@8.5.0
+  - undici@8.5.0

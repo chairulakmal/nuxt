@@ -5,17 +5,17 @@ import { isWindows } from 'std-env'
 import { normalize } from 'pathe'
 import { $fetch, fetch, setup, startServer } from '@nuxt/test-utils/e2e'
 import type { NuxtIslandResponse } from 'nuxt/app'
-import { computeIslandHash, filterIslandProps } from '../packages/nuxt/src/app/island-hash'
+import { computeIslandHash, serializeIslandProps } from '../packages/nuxt/src/app/island-hash'
 
 import { isDev, isWebpack } from './matrix'
 import { renderPage } from './utils'
 
 function islandURL (name: string, opts: { props?: Record<string, any>, context?: Record<string, any> } = {}) {
-  const filtered = filterIslandProps(opts.props ?? {})
+  const serializedProps = serializeIslandProps(opts.props)
   const ctx = opts.context ?? {}
-  const hashId = computeIslandHash(name, filtered, ctx, undefined)
+  const hashId = computeIslandHash(name, serializedProps, ctx, undefined)
   const query: Record<string, any> = { ...ctx }
-  if (opts.props) { query.props = JSON.stringify(opts.props) }
+  if (opts.props) { query.props = serializedProps }
   return withQuery(`/__nuxt_island/${name}_${hashId}.json`, query)
 }
 
@@ -176,6 +176,19 @@ describe('server components/islands', () => {
 
     expect(await page.innerHTML('head')).toContain('<meta name="author" content="Nuxt">')
     await page.close()
+  })
+
+  it('/server-page-with-nuxtpage/child renders the parent server page with the child route', async () => {
+    const html = await $fetch<string>('/server-page-with-nuxtpage/child')
+    expect(html).toContain('id="server-page-with-nuxtpage"')
+    expect(html).toContain('id="server-page-with-nuxtpage-child"')
+    expect(html).toContain('Child body')
+  })
+
+  it('/server-page-with-nuxtpage renders the parent without recursing into itself', async () => {
+    const html = await $fetch<string>('/server-page-with-nuxtpage')
+    expect(html).toContain('id="server-page-with-nuxtpage"')
+    expect(html).toContain('Parent body')
   })
 })
 
@@ -475,6 +488,32 @@ describe('hash binding', () => {
     expect(res.status).toBe(200)
   })
 
+  it('accepts props that change during JSON serialization', async () => {
+    const res = await fetch(islandURL('PureComponent', {
+      props: {
+        bool: false,
+        number: 1,
+        str: 's',
+        obj: { optional: undefined, callback: () => {}, items: [undefined] },
+      },
+    }))
+    expect(res.status).toBe(200)
+  })
+
+  // External island clients (e.g. `@nuxtjs/og-image`) build the URL hash from the props object
+  // and send `JSON.stringify(props)`. `computeIslandHash` over the serialized string and the
+  // client's object hash converge (asserted in island-hash.test.ts); here we send the raw
+  // `JSON.stringify(props)` the external client emits rather than `serializeIslandProps`.
+  it('accepts a request whose props were serialized by an external client', async () => {
+    const name = 'PureComponent'
+    const props = { bool: false, number: 1, str: 's', obj: {} }
+    const hashId = computeIslandHash(name, JSON.stringify(props), {}, undefined)
+    const res = await fetch(withQuery(`/__nuxt_island/${name}_${hashId}.json`, {
+      props: JSON.stringify(props),
+    }))
+    expect(res.status).toBe(200)
+  })
+
   it('rejects a request whose URL hash was computed over different props', async () => {
     // Compute a valid hash for one set of props, then swap the actual query props.
     const url = islandURL('PureComponent', {
@@ -499,6 +538,41 @@ describe('hash binding', () => {
       props: JSON.stringify({ bool: false, number: 1, str: 's', obj: {} }),
     }))
     expect(res.status).toBe(400)
+  })
+})
+
+describe('page-island middleware', () => {
+  it('runs page middleware and honours redirects for `page_*` islands', async () => {
+    const res = await fetch(islandURL('page_gated-server-page', {
+      context: { url: '/gated-server-page' },
+    }), { redirect: 'manual' })
+    // page middleware calls `navigateTo('/login', { redirectCode: 302 })`
+    expect(res.status).toBe(302)
+    expect(res.headers.get('location')).toContain('/login')
+    const body = await res.text()
+    expect(body).not.toContain('SUPER-SECRET-PAGE-ISLAND-BODY')
+    // this asserts the island handler fires `app:rendered` even when middleware short-circuits response
+    expect(res.headers.get('set-cookie')).toContain('island-auth-marker=set-from-island-middleware')
+  })
+
+  it('still renders unguarded `page_*` islands', async () => {
+    const res = await fetch(islandURL('page_server-page', {
+      context: { url: '/server-page' },
+    }))
+    expect(res.status).toBe(200)
+    const body = await res.json() as NuxtIslandResponse
+    expect(body.html).toContain('Hello this is a server page')
+  })
+
+  it('rejects a `page_*` island whose url routes to a different page', async () => {
+    // Forging `page_gated-server-page` with `url=/server-page` would render the gated
+    // page's HTML while running the (empty) middleware for the unguarded page.
+    const res = await fetch(islandURL('page_gated-server-page', {
+      context: { url: '/server-page' },
+    }), { redirect: 'manual' })
+    expect(res.status).toBe(400)
+    const body = await res.text()
+    expect(body).not.toContain('SUPER-SECRET-PAGE-ISLAND-BODY')
   })
 })
 

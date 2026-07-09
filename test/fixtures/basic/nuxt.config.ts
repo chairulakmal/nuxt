@@ -168,6 +168,7 @@ export default withMatrix({
       selectiveClient: 'deep',
     },
     inlineRouteRules: true,
+    prefetchPreloadTags: true,
   },
   nitro: {
     publicAssets: [
@@ -179,11 +180,13 @@ export default withMatrix({
     
     routeRules: {
       '/route-rules/spa': { ssr: false },
+      '/route-rules/spa-async-data': { ssr: false },
       '/redirect/catchall': { ssr: false },
       '/head-spa': { ssr: false },
       '/route-rules/middleware': { appMiddleware: 'route-rules-middleware' },
       '/route-rules/layout': { appLayout: 'custom' },
       '/hydration/spa-redirection/**': { ssr: false },
+      '/spa-plugin-redirect/**': { ssr: false },
       '/no-scripts': { noScripts: true },
       '/prerender/**': { prerender: true },
       '/route-rules/redirect': { redirect: '/' },

@@ -1,10 +1,9 @@
-import type { PropType } from 'vue'
-import { computed, defineComponent, getCurrentInstance, onBeforeUnmount, onMounted, ref, shallowRef, useId, watch } from 'vue'
+import type { DefineSetupFnComponent, PropType, SlotsType, VNode } from 'vue'
+import { computed, defineComponent, getCurrentInstance, onBeforeUnmount, onMounted, ref, shallowRef, toRaw, useId, watch } from 'vue'
 import { debounce } from 'perfect-debounce'
 import type { ActiveHeadEntry, SerializableHead } from '@unhead/vue'
 import { randomUUID } from 'uncrypto'
 import { joinURL, withQuery } from 'ufo'
-import type { FetchResponse } from 'ofetch'
 import { renderOnigiri } from 'vue-onigiri/runtime/deserialize'
 import type { ImportFn } from 'vue-onigiri/runtime/utils'
 // @ts-expect-error virtual file
@@ -14,7 +13,7 @@ import { useNuxtApp, useRuntimeConfig } from '../nuxt'
 import { createError } from '../composables/error'
 import { prerenderRoutes, useRequestEvent } from '../composables/ssr'
 import { injectHead } from '../composables/head'
-import { computeIslandHash, filterIslandProps } from '../island-hash'
+import { computeIslandHash, serializeIslandProps } from '../island-hash'
 
 // @ts-expect-error virtual file
 import { remoteComponentIslands } from '#build/nuxt.config.mjs'
@@ -64,7 +63,26 @@ function makeServerOnigiriImportFn (config: ReturnType<typeof useRuntimeConfig>)
   }
 }
 
-export default defineComponent({
+interface NuxtIslandProps {
+  name: string
+  lazy?: boolean
+  props?: Record<string, any>
+  context?: Record<string, any>
+  scopeId?: string | undefined | null
+  source?: string
+  dangerouslyLoadClientComponents?: boolean
+}
+
+type NuxtIslandEmits = {
+  error: (error: unknown) => void
+}
+
+type NuxtIslandSlots = SlotsType<{
+  fallback?: (props: { error: unknown }) => VNode[]
+  [name: string]: ((props: any) => VNode[]) | undefined
+}>
+
+const NuxtIsland = defineComponent({
   name: 'NuxtIsland',
   inheritAttrs: false,
   props: {
@@ -100,8 +118,8 @@ export default defineComponent({
     const error = ref<unknown>(null)
     const config = useRuntimeConfig()
     const nuxtApp = useNuxtApp()
-    const filteredProps = computed(() => filterIslandProps(props.props))
-    const hashId = computed(() => computeIslandHash(props.name, filteredProps.value, props.context, props.source))
+    const serializedProps = computed(() => serializeIslandProps(props.props))
+    const hashId = computed(() => computeIslandHash(props.name, serializedProps.value, props.context, props.source))
     const instance = getCurrentInstance()!
     const event = useRequestEvent()
     const ast = ref(nuxtApp.payload.data[`${props.name}_${hashId.value}`]?.ast)
@@ -122,7 +140,7 @@ export default defineComponent({
           key,
           ...(import.meta.server && import.meta.prerender)
             ? {}
-            : { params: { ...props.context, props: props.props ? JSON.stringify(props.props) : undefined } },
+            : { params: { ...props.context, props: props.props ? serializedProps.value : undefined } },
           result: toRevive,
         },
         ...result,
@@ -145,7 +163,7 @@ export default defineComponent({
       // TODO: Validate response
       const r = await fetch(withQuery(((import.meta.dev && import.meta.client) || props.source) ? url : joinURL(config.app.baseURL ?? '', url), {
         ...props.context,
-        props: props.props ? JSON.stringify(props.props) : undefined,
+        props: props.props ? serializedProps.value : undefined,
       }))
       if (!r.ok) {
         throw createError({ status: r.status, statusText: r.statusText })
@@ -163,7 +181,7 @@ export default defineComponent({
         return result
       } catch (e: any) {
         if (r.status !== 200) {
-          throw new Error(e.toString(), { cause: r })
+          throw new Error(e.toString(), { cause: e })
         }
         throw e
       }
@@ -225,4 +243,6 @@ export default defineComponent({
 
     return () => renderOnigiri(ast.value, onigiriImportFn ? { importFn: onigiriImportFn } : undefined)
   },
-})
+}) as unknown as DefineSetupFnComponent<NuxtIslandProps, NuxtIslandEmits, NuxtIslandSlots>
+
+export default NuxtIsland

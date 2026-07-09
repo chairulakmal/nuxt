@@ -55,7 +55,7 @@ export const bundle: NuxtBuilder['bundle'] = async (nuxt) => {
     nitro.options.virtual['#internal/nitro/ssr-stacktrace'] = `export { default } from ${JSON.stringify(resolve(distDir, 'fix-stacktrace'))}`
     nitro.options.plugins.push('#internal/nitro/ssr-stacktrace')
     nitro.options.alias['#vite-node'] = resolve(distDir, 'vite-node')
-    nitro.options.virtual['#internal/nuxt/vite-node-runner'] = () => `export { default } from ${JSON.stringify(resolve(distDir, 'vite-node-runner'))}`
+    nitro.options.virtual['#internal/nuxt/vite-node-runner.mjs'] = () => `export { default } from ${JSON.stringify(resolve(distDir, 'vite-node-runner'))}`
   }
 
   let allowDirs = [
@@ -73,9 +73,9 @@ export const bundle: NuxtBuilder['bundle'] = async (nuxt) => {
     ]),
   ].filter(d => d && existsSync(d))
 
-  for (const dir of allowDirs) {
-    allowDirs = allowDirs.filter(d => !d.startsWith(dir) || d === dir)
-  }
+  allowDirs = allowDirs.filter(d =>
+    !allowDirs.some(other => other !== d && d.startsWith(other + '/')),
+  )
 
   const { $client, $server, ...viteConfig } = nuxt.options.vite
 
@@ -484,6 +484,7 @@ export async function importFn(src, exportName = 'default') {
   nuxt._perf?.startPhase('vite:dev-server')
   await withLogs(async () => {
     const server = await createServer(config)
+    nuxt.hook('close', () => server.close())
     await server.environments.ssr.pluginContainer.buildStart({})
   }, 'Vite dev server built')
   nuxt._perf?.endPhase('vite:dev-server')
