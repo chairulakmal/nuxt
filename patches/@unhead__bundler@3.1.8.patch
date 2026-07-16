@@ -1,0 +1,61 @@
+diff --git a/dist/shared/bundler.Do7qE_cD.mjs b/dist/shared/bundler.Do7qE_cD.mjs
+--- a/dist/shared/bundler.Do7qE_cD.mjs
++++ b/dist/shared/bundler.Do7qE_cD.mjs
+@@ -311,12 +311,15 @@
+ const UNHEAD_JS_MODULE_RE = /[\\/]node_modules[\\/](?:@unhead[\\/][^\\/]+|unhead)[\\/].*\.(?:c|m)?js$/;
+ const HEAD_SSR_FILTER_RE = /\bhead\.ssr\b/;
+ const HEAD_SSR_RE = new RegExp(HEAD_SSR_FILTER_RE.source, "g");
++function resolveBuildConsumer(ctx, fallback) {
++  const consumer = ctx?.environment?.config?.consumer;
++  if (consumer === "client" || consumer === "server")
++    return consumer;
++  return fallback;
++}
+ const SSRStaticReplace = createUnplugin(() => {
+-  let ssr = false;
+-  let enabled = true;
++  let fallbackConsumer;
+   function shouldTransformId(id) {
+-    if (!enabled)
+-      return false;
+     return UNHEAD_JS_MODULE_RE.test(id);
+   }
+   function shouldTransformCode(code) {
+@@ -332,10 +335,14 @@
+         id: UNHEAD_JS_MODULE_RE
+       },
+       handler(code, id) {
++        const consumer = resolveBuildConsumer(this, fallbackConsumer);
++        if (!consumer)
++          return;
+         if (!shouldTransformId(id))
+           return;
+         if (!shouldTransformCode(code))
+           return;
++        const ssr = consumer === "server";
+         const s = new MagicString(code);
+         for (const match of code.matchAll(HEAD_SSR_RE)) {
+           s.overwrite(match.index, match.index + match[0].length, String(ssr));
+@@ -349,17 +356,14 @@
+       }
+     },
+     webpack(ctx) {
+-      if (ctx.name === "server")
+-        ssr = true;
++      fallbackConsumer = ctx.name === "server" ? "server" : "client";
+     },
+     vite: {
++      sharedDuringBuild: true,
+       apply(_config, env) {
+-        if (env.command === "serve") {
+-          enabled = false;
+-          return true;
+-        }
+-        if (env.isSsrBuild)
+-          ssr = true;
++        if (env.command === "serve")
++          return false;
++        fallbackConsumer = env.isSsrBuild ? "server" : "client";
+         return true;
+       }
+     }

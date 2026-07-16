@@ -10,6 +10,7 @@ packages:
 
 patchedDependencies:
   changelogen: patches/changelogen.patch
+  '@unhead/bundler@3.1.8': patches/@unhead__bundler@3.1.8.patch
 
 publicHoistPattern:
   - '*-loader'
