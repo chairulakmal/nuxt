@@ -4,13 +4,12 @@ import { hash } from 'ohash'
 
 import { parseAndWalk } from 'oxc-walker'
 import { transformAndMinify } from '../../core/utils/parse.ts'
-import type { Nuxt } from '@nuxt/schema'
 import { isJS, isVue } from '../utils/index.ts'
 
-export function PrehydrateTransformPlugin (nuxt: Nuxt) {
+export function PrehydrateTransformPlugin ({ enforce }: { enforce?: 'pre' } = {}) {
   return createUnplugin(() => ({
     name: 'nuxt:prehydrate-transform',
-    enforce: nuxt.options.experimental.nitroViteEnvironment ? 'pre' : undefined,
+    enforce,
     transformInclude (id) {
       return isJS(id) || isVue(id, { type: ['script'] })
     },
