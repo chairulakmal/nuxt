@@ -116,7 +116,7 @@ export function setupNitroViteEnvironment (nuxt: Nuxt & { _nitro?: Nitro }, nitr
         services: {
           ssr: {
             entry: resolveModulePath(resolve(distDir, 'runtime/handlers/renderer'), {
-              extensions: ['.ts', '.js'],
+              extensions: ['.ts', '.mjs', '.js'],
             }),
           },
         },

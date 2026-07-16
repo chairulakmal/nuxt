@@ -2,7 +2,7 @@ import http from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { loadNuxt, buildNuxt } from '@nuxt/kit'
+import { buildNuxt, loadNuxt } from '@nuxt/kit'
 
 import { builder, isBuilt } from './matrix'
 
