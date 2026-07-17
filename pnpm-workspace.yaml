@@ -33,8 +33,8 @@ overrides:
   esbuild: "0.28.1"
   nuxt: "workspace:*"
   oxc-parser: "0.140.0"
-  vite: "8.1.4"
-  vue: "3.5.39"
+  vite: "8.1.5"
+  vue: "3.5.40"
 
 minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
