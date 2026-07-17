@@ -80,6 +80,14 @@ export function createNuxt (options: NuxtOptions): Nuxt {
     close: async () => { await hooks.callHook('close', nuxt) },
     vfs: {},
     apps: {},
+    buildOutputs: {
+      ssrStyles: () => 'export default {}',
+      serverEntry: () => `export default () => { throw new Error('[nuxt] nuxt/entry was not replaced by a builder. Ensure a Nuxt builder (Vite, Webpack, or Rspack) is configured.') }`,
+      clientManifest: () => 'export default {}',
+      clientPrecomputed: () => 'export default undefined',
+      entryChunkName: () => 'export const entryFileName = undefined',
+      entryIds: () => 'export default []',
+    },
     runWithContext: fn => runWithNuxtContext(nuxt, fn),
     options,
   }
@@ -149,6 +157,42 @@ export function createNuxt (options: NuxtOptions): Nuxt {
   return nuxt
 }
 
+function fullyUnwrap (value: unknown): unknown {
+  let current = value
+  let target = onChange.target(current as Record<string, any>)
+  while (target !== current) {
+    current = target
+    target = onChange.target(current as Record<string, any>)
+  }
+  return current
+}
+
+/**
+ * Deeply replace any `on-change` proxies embedded in `value` with their plain targets.
+ *
+ * When `experimental.debugModuleMutation` is enabled, reading `nuxt.options` inside a module
+ * returns an `on-change` proxy. Merging helpers like `defu` read proxied nested objects and copy
+ * those proxy references into their result, which then gets written back into the real options via
+ * a normal assignment. `on-change` only unwraps the top level of an assigned value, so the nested
+ * proxies survive and later break consumers that treat the resolved config as plain data (e.g.
+ * `structuredClone` throwing `DataCloneError`). We strip them once module setup is finished.
+ */
+function stripDebugProxies (value: unknown, seen = new WeakSet<object>()): void {
+  const target = fullyUnwrap(value)
+  if (target === null || typeof target !== 'object' || seen.has(target)) {
+    return
+  }
+  seen.add(target)
+  for (const key of Object.keys(target)) {
+    const current = (target as Record<string, unknown>)[key]
+    const unwrapped = fullyUnwrap(current)
+    if (unwrapped !== current) {
+      (target as Record<string, unknown>)[key] = unwrapped
+    }
+    stripDebugProxies(unwrapped, seen)
+  }
+}
+
 const fallbackCompatibilityDate = '2025-07-15' as DateString
 
 const nightlies = {
@@ -176,6 +220,12 @@ async function initNuxt (nuxt: Nuxt) {
     if (config.hooks) {
       nuxt.hooks.addHooks(config.hooks)
     }
+  }
+
+  if (nuxt.options.dev) {
+    nuxt.hook('listen', (server) => {
+      nuxt._devServerListener = server
+    })
   }
 
   // Prompt to set compatibility date
@@ -222,11 +272,11 @@ async function initNuxt (nuxt: Nuxt) {
   if (nuxt.options.typescript.builder !== false) {
     const envMap = {
       // defaults from `builder` based on package name
-      '@nuxt/rspack-builder': '@rspack/core/module',
+      '@nuxt/rspack-builder': '@rsbuild/core/types',
       '@nuxt/vite-builder': 'vite/client',
       '@nuxt/webpack-builder': 'webpack/module',
       // simpler overrides from `typescript.builder` for better DX
-      'rspack': '@rspack/core/module',
+      'rspack': '@rsbuild/core/types',
       'vite': 'vite/client',
       'webpack': 'webpack/module',
       // default 'merged' builder environment for module authors
@@ -271,7 +321,7 @@ async function initNuxt (nuxt: Nuxt) {
       return serverBuilderReference
     }
     serverBuilderReference = nuxt.options.server.builder === '@nuxt/nitro-server'
-      ? { path: resolveModulePath(nuxt.options.server.builder, { from: import.meta.url }).replace('.mjs', '.d.mts') }
+      ? { path: resolveModulePath('@nuxt/nitro-server/augments', { from: import.meta.url }).replace(/\.mjs$/, '.d.mts') }
       : { types: nuxt.options.server.builder }
     return serverBuilderReference
   }
@@ -304,6 +354,9 @@ async function initNuxt (nuxt: Nuxt) {
     if (serverBuilderReference) {
       opts.references.push(serverBuilderReference)
       opts.nodeReferences.push(serverBuilderReference)
+      if (nuxt.options.server.builder === '@nuxt/nitro-server') {
+        opts.sharedReferences.push(serverBuilderReference)
+      }
     }
 
     opts.sharedReferences.push({ path: resolve(nuxt.options.buildDir, 'types/runtime-config.d.ts') })
@@ -314,6 +367,8 @@ async function initNuxt (nuxt: Nuxt) {
     paths ||= await resolveTypescriptPaths(nuxt)
     opts.tsConfig.compilerOptions = defu(opts.tsConfig.compilerOptions, { paths: { ...paths } })
     opts.nodeTsConfig.compilerOptions = defu(opts.nodeTsConfig.compilerOptions, { paths: { ...paths } })
+    // required for the server builder's augmentations (referenced above)
+    opts.nodeTsConfig.compilerOptions!.paths!['#app/types'] ||= [resolve(nuxt.options.appDir, 'types')]
     opts.sharedTsConfig.compilerOptions = defu(opts.sharedTsConfig.compilerOptions, { paths: { ...paths } })
 
     for (const dirs of layerDirs) {
@@ -373,12 +428,13 @@ async function initNuxt (nuxt: Nuxt) {
   }
 
   nuxt.hook('modules:done', () => {
+    const helperModule = resolveModulePath('unctx', { from: import.meta.url, try: true }) ?? 'unctx'
     // Add unctx transform
     addBuildPlugin(UnctxTransformPlugin({
       sourcemap: !!nuxt.options.sourcemap.server || !!nuxt.options.sourcemap.client,
       transformerOptions: {
         ...nuxt.options.optimization.asyncTransforms,
-        helperModule: 'unctx',
+        helperModule,
       },
     }))
 
@@ -650,6 +706,10 @@ async function initNuxt (nuxt: Nuxt) {
   }
 
   await installModules(modules, resolvedModulePaths, nuxt)
+
+  if (nuxt.options.experimental.debugModuleMutation) {
+    stripDebugProxies(nuxt.options)
+  }
 
   // (Re)initialise ignore handler with resolved ignores from modules
   nuxt._ignore = ignore(nuxt.options.ignoreOptions)

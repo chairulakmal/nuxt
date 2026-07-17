@@ -30,6 +30,10 @@ Need a custom `useFetch` with pre-defined defaults (like `baseURL` or auth heade
 ::
 
 ::note
+You do not need to `await` `useFetch`. On the server, Nuxt waits for the promise to resolve before rendering in either case, so the returned HTML always contains the data. The `await` affects what happens after the call: with it, execution pauses until `data` is populated, and client-side navigation is blocked until the data is ready; without it, execution continues immediately, `data` starts as its default value until the request resolves, and on client-side navigation you handle the loading and error states yourself using the returned `status` and `error` refs. This has a similar effect to the [`lazy`](#parameters) option, though `lazy` is the explicit way to opt into non-blocking navigation.
+::
+
+::note
 `data`, `status`, and `error` are Vue refs, and they should be accessed with `.value` when used within the `<script setup>`, while `refresh`/`execute` and `clear` are plain functions.
 ::
 
@@ -126,12 +130,12 @@ searchQuery.value = 'new search'
 ## Type
 
 ```ts [Signature]
-export function useFetch<DataT, ErrorT> (
+export function useFetch<ResT, ErrorT = NuxtError<unknown>, DataT = ResT> (
   url: string | Request | Ref<string | Request> | (() => string | Request),
-  options?: UseFetchOptions<DataT>,
-): Promise<AsyncData<DataT, ErrorT>>
+  options?: UseFetchOptions<ResT, DataT>,
+): AsyncData<DataT, ErrorT> & Promise<AsyncData<DataT, ErrorT>>
 
-type UseFetchOptions<DataT> = {
+type UseFetchOptions<ResT, DataT = ResT> = {
   key?: MaybeRefOrGetter<string>
   method?: MaybeRefOrGetter<string>
   query?: MaybeRefOrGetter<SearchParams>
@@ -147,8 +151,8 @@ type UseFetchOptions<DataT> = {
   deep?: boolean
   dedupe?: 'cancel' | 'defer'
   timeout?: number
-  default?: () => DataT
-  transform?: (input: DataT) => DataT | Promise<DataT>
+  default?: () => DataT | Ref<DataT>
+  transform?: (input: ResT) => DataT | Promise<DataT>
   pick?: string[]
   $fetch?: typeof globalThis.$fetch
   watch?: MultiWatchSources | false
@@ -182,7 +186,7 @@ type AsyncDataRequestStatus = 'idle' | 'pending' | 'success' | 'error'
 
 - `URL` (`string | Request | Ref<string | Request> | () => string | Request`): The URL or request to fetch. Can be a string, a Request object, a Vue ref, or a function returning a string/Request. Supports reactivity for dynamic endpoints.
 
-- `options` (object): Configuration for the fetch request. Extends [unjs/ofetch](https://github.com/unjs/ofetch) options and [`AsyncDataOptions`](/docs/4.x/api/composables/use-async-data#params). All options can be a static value, a `ref`, or a computed value.
+- `options` (object): Configuration for the fetch request. Extends [unjs/ofetch](https://github.com/unjs/ofetch) options and [`AsyncDataOptions`](/docs/4.x/api/composables/use-async-data#parameters). All options can be a static value, a `ref`, or a computed value.
 
 | Option          | Type                                                                    | Default    | Description                                                                                                      |
 |-----------------|-------------------------------------------------------------------------|------------|------------------------------------------------------------------------------------------------------------------|
@@ -203,12 +207,12 @@ type AsyncDataRequestStatus = 'idle' | 'pending' | 'success' | 'error'
 | `getCachedData` | `(key, nuxtApp, ctx) => DataT \| undefined`                             | -          | Function to return cached data. See below for default.                                                           |
 | `pick`          | `string[]`                                                              | -          | Only pick specified keys from the result.                                                                        |
 | `watch`         | `MultiWatchSources \| false`                                            | -          | Array of reactive sources to watch and auto-refresh. `false` disables watching.                                  |
-| `deep`          | `boolean`                                                               | `false`    | Return data in a deep ref object.                                                                                |
+| `deep`          | `boolean`                                                               | `false`    | Return data in a deep ref object. Defaults to `false` for improved performance (shallow ref object).             |
 | `dedupe`        | `'cancel' \| 'defer'`                                                   | `'cancel'` | Avoid fetching same key more than once at a time.                                                                |
 | `$fetch`        | `typeof globalThis.$fetch`                                              | -          | Custom $fetch implementation. See [Custom useFetch in Nuxt](/docs/4.x/guide/recipes/custom-usefetch)             |
 
 ::note
-All fetch options can be given a `computed` or `ref` value. These will be watched and new requests made automatically with any new values if they are updated.
+All fetch options can be given a `computed` or `ref` value. These will be watched and new requests made automatically with any new values if they are updated (unless `watch` is set to `false`).
 ::
 
 **getCachedData default:**
@@ -222,6 +226,16 @@ This only caches data when `experimental.payloadExtraction` in `nuxt.config` is 
 
 ## Return Values
 
+This composable returns a `Promise` that can be awaited, which makes it possible to use `data` directly within the `<script setup>` (i.e. a value will be present, instead of being undefined). You can also directly pull the values without awaiting the return value, in which case `data` can be undefined within `<script setup>` until the fetch completes.
+
+::tip
+Even if you do not await the return value, during SSR Nuxt will wait for the request to finish and send the resolved data to the client.
+::
+
+::note
+If you have not fetched data on the server (for example, with `server: false`), then the data _will not_ be fetched until hydration completes. This means even if you await `useFetch` on client-side, `data` will remain undefined within `<script setup>`.
+::
+
 | Name      | Type                                                | Description                                                                                                                                                       |
 |-----------|-----------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `data`    | `Ref<DataT \| undefined>`                           | The result of the asynchronous fetch.                                                                                                                             |
@@ -229,8 +243,12 @@ This only caches data when `experimental.payloadExtraction` in `nuxt.config` is 
 | `execute` | `(opts?: AsyncDataExecuteOptions) => Promise<void>` | Alias for `refresh`.                                                                                                                                              |
 | `error`   | `Ref<ErrorT \| undefined>`                          | Error object if the data fetching failed.                                                                                                                         |
 | `status`  | `Ref<'idle' \| 'pending' \| 'success' \| 'error'>`  | Status of the data request. See below for possible values.                                                                                                        |
-| `pending` | `Ref<boolean>`                                      | Boolean flag indicating whether the current request is in progress.                                                                                                |
+| `pending` | `Ref<boolean>`                                      | Boolean flag indicating whether the current request is in progress.                                                                                               |
 | `clear`   | `() => void`                                        | Resets `data` to `undefined` (or the value of `options.default()` if provided), `error` to `undefined`, set `status` to `idle`, and cancels any pending requests. |
+
+::tip
+Functions from the `Promise` (`then`, `catch`, and `finally`) can safely be destructured, if you did not await the return value.
+::
 
 ### Status values
 
@@ -238,10 +256,6 @@ This only caches data when `experimental.payloadExtraction` in `nuxt.config` is 
 - `pending`: Request is in progress
 - `success`: Request completed successfully
 - `error`: Request failed
-
-::note
-If you have not fetched data on the server (for example, with `server: false`), then the data _will not_ be fetched until hydration completes. This means even if you await `useFetch` on client-side, `data` will remain undefined within `<script setup>`.
-::
 
 ### Examples
 

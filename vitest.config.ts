@@ -58,10 +58,12 @@ const fixtureMatrix: FixtureMatrixEntry[] = [
   { env: 'built', builder: 'vite', context: 'async', manifest: 'manifest-off' },
   { env: 'built', builder: 'vite', context: 'default', manifest: 'manifest-on' },
   { env: 'built', builder: 'vite', context: 'default', manifest: 'manifest-off' },
-  // rspack: only built + manifest-on
+  // rspack: only manifest-on
+  { env: 'dev', builder: 'rspack', context: 'async', manifest: 'manifest-on' },
   { env: 'built', builder: 'rspack', context: 'async', manifest: 'manifest-on' },
   { env: 'built', builder: 'rspack', context: 'default', manifest: 'manifest-on' },
-  // webpack: only built + manifest-on
+  // webpack: only manifest-on
+  { env: 'dev', builder: 'webpack', context: 'async', manifest: 'manifest-on' },
   { env: 'built', builder: 'webpack', context: 'async', manifest: 'manifest-on' },
   { env: 'built', builder: 'webpack', context: 'default', manifest: 'manifest-on' },
 ]
@@ -136,7 +138,7 @@ export default defineConfig({
             '#build/router.options.mjs': resolve('./test/mocks/router-options'),
             '#internal/nuxt/paths': resolve('./test/mocks/paths'),
             '#build/app.config.mjs': resolve('./test/mocks/app-config'),
-            '#app': resolve('./packages/nuxt/dist/app'),
+            '#app': resolve('./packages/nuxt/src/app'),
           },
         },
         test: {
