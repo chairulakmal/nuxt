@@ -1,6 +1,7 @@
 import type { H3Event } from '@nuxt/nitro-server/h3'
 import { computed, getCurrentInstance, ref } from 'vue'
 import type { $Fetch } from 'nitro/types'
+import { $fetch } from '#build/fetch'
 
 import type { NuxtApp } from '../nuxt'
 import { useNuxtApp } from '../nuxt'

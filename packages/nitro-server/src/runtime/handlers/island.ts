@@ -7,10 +7,9 @@ import { getRequestDependencies } from 'vue-bundle-renderer/runtime'
 import { getQuery as getURLQuery } from 'ufo'
 import { FastResponse } from 'srvx'
 import { serializeApp } from 'vue-onigiri/runtime/serialize'
-import { computeIslandHash } from '#app/island-hash'
-import type { NuxtIslandContext, NuxtIslandResponse } from 'nuxt/app'
+import { getIslandHash } from '#app/island-hash'
+import type { NuxtIslandContext, NuxtIslandResponse } from '#app/types'
 import { traceAsync } from '#app/internal/tracing'
-// @ts-expect-error virtual file
 import { tracingChannelNuxt } from '#internal/nuxt.config.mjs'
 import { createSSRContext, rethrowWithResponseHeaders, returnRenderResponse } from '../utils/renderer/app'
 import { getComponentsIslands, getSSRRenderer, getServerEntry } from '../utils/renderer/build-files'
@@ -76,7 +75,9 @@ export default {
 
       // Fire `app:rendered` before checking `~renderResponse` (matches `renderer.ts`), so
       // anything hooking into it, like `useCookie`, will still work on redirect/reject.
-      await ssrContext.nuxt?.hooks.callHook('app:rendered', { ssrContext })
+      // The onigiri island path serializes the app to an AST rather than rendering
+      // HTML, so there is no `renderResult` to report.
+      await ssrContext.nuxt?.hooks.callHook('app:rendered', { ssrContext, renderResult: null })
 
       if (ssrContext['~renderResponse']) {
         return returnRenderResponse(event, ssrContext['~renderResponse'])
@@ -185,7 +186,7 @@ async function getIslandContext (event: H3Event): Promise<NuxtIslandContext> {
 
   // Bind the response to the URL: a request whose URL-resident `hashId` does not match
   // the actual (name, serialized props, context) is rejected.
-  const expectedHash = computeIslandHash(componentName, serializedProps, clientContext, undefined)
+  const expectedHash = getIslandHash({ name: componentName, props: serializedProps, context: clientContext })
   if (!hashId || hashId !== expectedHash) {
     throw new HTTPError({ status: 400, statusText: 'Invalid island request hash' })
   }

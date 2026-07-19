@@ -13,9 +13,8 @@ import { useNuxtApp, useRuntimeConfig } from '../nuxt'
 import { createError } from '../composables/error'
 import { prerenderRoutes, useRequestEvent } from '../composables/ssr'
 import { injectHead } from '../composables/head'
-import { computeIslandHash, serializeIslandProps } from '../island-hash'
+import { getIslandHash, serializeIslandProps } from '../island-hash'
 
-// @ts-expect-error virtual file
 import { remoteComponentIslands } from '#build/nuxt.config.mjs'
 
 const pKey = '_islandPromises'
@@ -119,7 +118,7 @@ const NuxtIsland = defineComponent({
     const config = useRuntimeConfig()
     const nuxtApp = useNuxtApp()
     const serializedProps = computed(() => serializeIslandProps(props.props))
-    const hashId = computed(() => computeIslandHash(props.name, serializedProps.value, props.context, props.source))
+    const hashId = computed(() => getIslandHash({ name: props.name, props: serializedProps.value, context: props.context, source: props.source }))
     const instance = getCurrentInstance()!
     const event = useRequestEvent()
     const ast = ref(nuxtApp.payload.data[`${props.name}_${hashId.value}`]?.ast)

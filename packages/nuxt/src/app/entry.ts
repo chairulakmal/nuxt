@@ -1,10 +1,7 @@
 import { createApp, createSSRApp, nextTick } from 'vue'
 import type { App, Component } from 'vue'
 
-// This file must be imported first as we set globalThis.$fetch via this import
-// @ts-expect-error virtual file
 import '#build/fetch'
-// @ts-expect-error virtual file
 import '#build/global-polyfills.mjs'
 
 import { applyPlugins, createNuxtApp } from './nuxt'
@@ -12,13 +9,9 @@ import type { CreateOptions, NuxtSSRContext } from './nuxt'
 
 import { createError } from './composables/error'
 
-// @ts-expect-error virtual file
 import '#build/css'
-// @ts-expect-error virtual file
 import plugins from '#build/plugins'
-// @ts-expect-error virtual file
 import RootComponent from '#build/root-component.mjs'
-// @ts-expect-error virtual file
 import { appId, appSpaLoaderAttrs, multiApp, spaLoadingTemplateOutside, vueAppRootContainer } from '#build/nuxt.config.mjs'
 
 /**
