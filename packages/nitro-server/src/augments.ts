@@ -19,10 +19,6 @@ export interface NuxtTracingChannelOptions extends TracingOptions {
   nuxt?: boolean
 }
 
-type NuxtNitroConfig = Omit<NitroConfig, 'typescript'> & {
-  typescript?: Omit<NonNullable<NitroConfig['typescript']>, 'tsConfig'>
-}
-
 declare module 'nitro/types' {
   interface NitroRuntimeConfigApp {
     baseURL: string
@@ -162,7 +158,7 @@ declare module '@nuxt/schema' {
   }
 
   interface NuxtConfig {
-    nitro?: NuxtNitroConfig
+    nitro?: NitroConfig
   }
 
   interface RuntimeConfig {
@@ -280,7 +276,7 @@ declare module 'nuxt/schema' {
   }
 
   interface NuxtConfig {
-    nitro?: NuxtNitroConfig
+    nitro?: NitroConfig
   }
 
   interface RuntimeConfig {

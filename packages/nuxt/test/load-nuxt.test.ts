@@ -218,6 +218,19 @@ describe('loadNuxt', () => {
     expect(compilerOptions.noPropertyAccessFromIndexSignature).toBe(false)
     await nuxt.close()
   })
+
+  it('keeps typescript.serverTsConfig and nitro.typescript.tsConfig in sync', async () => {
+    const nuxt = await loadNuxt({
+      cwd: repoRoot,
+      ready: true,
+      overrides: {
+        nitro: { typescript: { tsConfig: { compilerOptions: { noPropertyAccessFromIndexSignature: false } } } },
+      },
+    })
+    expect(nuxt.options.typescript.serverTsConfig).toBe(nuxt.options.nitro.typescript!.tsConfig)
+    expect(nuxt.options.typescript.serverTsConfig?.compilerOptions?.noPropertyAccessFromIndexSignature).toBe(false)
+    await nuxt.close()
+  })
 })
 
 const pagesDetectionTests: [test: string, overrides: NuxtConfig, result: NuxtConfig['pages']][] = [
