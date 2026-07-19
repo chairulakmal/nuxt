@@ -20,12 +20,7 @@ export interface NuxtTracingChannelOptions extends TracingOptions {
 }
 
 type NuxtNitroConfig = Omit<NitroConfig, 'typescript'> & {
-  typescript?: Omit<NonNullable<NitroConfig['typescript']>, 'tsConfig'> & {
-    /**
-     * @deprecated Use `typescript.serverTsConfig` in your Nuxt config instead. The two options are kept in sync, and this alias will be removed in Nuxt v5.
-     */
-    tsConfig?: NonNullable<NitroConfig['typescript']>['tsConfig']
-  }
+  typescript?: Omit<NonNullable<NitroConfig['typescript']>, 'tsConfig'>
 }
 
 declare module 'nitro/types' {

@@ -1829,7 +1829,7 @@ export interface ConfigSchema {
     nodeTsConfig: TSConfig
 
     /**
-     * You can extend the generated `.nuxt/tsconfig.server.json` using this option. Options set here take precedence over `tsConfig`. This option is kept in sync with the deprecated `nitro.typescript.tsConfig`.
+     * You can extend the generated `.nuxt/tsconfig.server.json` using this option. Options set here take precedence over `tsConfig`.
      */
     serverTsConfig: TSConfig
 

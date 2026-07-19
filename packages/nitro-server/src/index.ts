@@ -30,6 +30,8 @@ import { createImportProtectionPatterns } from '../../nuxt/src/core/plugins/impo
 import { nitroSchemaTemplate } from './templates.ts'
 import { getH3ImportsPreset, v2ImportsPreset } from './imports.ts'
 
+type NitroTSConfig = NonNullable<NonNullable<NitroConfig['typescript']>['tsConfig']>
+
 const logLevelMapReverse = {
   silent: 0,
   info: 3,
@@ -127,11 +129,11 @@ export async function bundle (nuxt: Nuxt & { _nitro?: Nitro }): Promise<void> {
 
   const nitroConfig: NitroConfig = defu(nuxt.options.nitro, {
     typescript: {
-      tsConfig: {
+      tsConfig: defu<NitroTSConfig, NitroTSConfig[]>(nuxt.options.typescript?.serverTsConfig ?? {}, {
         compilerOptions: nuxt.options.typescript?.tsConfig?.compilerOptions ?? {},
-      },
+      }),
     },
-  } satisfies NitroConfig, {
+  }, {
     debug: nuxt.options.debug ? nuxt.options.debug.nitro : false,
     rootDir: nuxt.options.rootDir,
     workspaceDir: nuxt.options.workspaceDir,
