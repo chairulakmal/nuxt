@@ -1182,7 +1182,7 @@ export interface ConfigSchema {
      *
      * @default 'auto'
      */
-    componentIslands: true | 'auto' | 'local' | 'local+remote' | Partial<{ remoteIsland: boolean, selectiveClient: boolean | 'deep' }> | false
+    componentIslands: 'auto' | boolean
 
     /**
      * Resolve `~`, `~~`, `@` and `@@` aliases located within layers with respect to their layer source and root directories.

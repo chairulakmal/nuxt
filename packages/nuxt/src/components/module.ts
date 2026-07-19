@@ -248,7 +248,6 @@ export default defineNuxtModule<ComponentsOptions>({
     }
 
     if (nuxt.options.experimental.componentIslands) {
-      const selectiveClient = typeof nuxt.options.experimental.componentIslands === 'object' && nuxt.options.experimental.componentIslands.selectiveClient
 
       addVitePlugin({
         name: 'nuxt-server-component-hmr',
@@ -279,17 +278,6 @@ export default defineNuxtModule<ComponentsOptions>({
           if (app.pages) { visit(app.pages) }
         }
         return paths
-      }
-
-      addBuildPlugin(IslandsTransformPlugin({ getComponents, getServerPages, selectiveClient }), { client: false, prepend: true })
-
-      if (selectiveClient && nuxt.options.builder === '@nuxt/vite-builder') {
-        addVitePlugin(() => ComponentsChunkPlugin({ dev: nuxt.options.dev, getComponents }))
-      } else {
-        addTemplate({
-          filename: 'component-chunk.mjs',
-          getContents: () => `export default {}`,
-        })
       }
     }
   },
