@@ -372,8 +372,11 @@ export async function _generateTypes (nuxt: Nuxt): Promise<GenerateTypesReturn> 
 
   const userExclude = [...(nuxt.options.typescript?.tsConfig?.exclude ?? []), ...(nuxt.options.typescript?.appTsConfig?.exclude ?? [])]
 
-  // `compilerOptions` from `typescript.tsConfig` are a baseline for every generated tsconfig
-  const globalCompilerOptions = nuxt.options.typescript?.tsConfig?.compilerOptions ?? {}
+  // we deliberately do not propagate `types`, `paths` and `noEmit`
+  const globalCompilerOptions = { ...nuxt.options.typescript?.tsConfig?.compilerOptions }
+  delete globalCompilerOptions.types
+  delete globalCompilerOptions.paths
+  delete globalCompilerOptions.noEmit
 
   // https://www.totaltypescript.com/tsconfig-cheat-sheet
   const baseTsConfig: TSConfig = defu(nuxt.options.typescript?.tsConfig, {
