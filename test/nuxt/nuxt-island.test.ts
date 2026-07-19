@@ -219,8 +219,8 @@ describe('runtime server component', () => {
 })
 
 describe('client components', () => {
-  it('expect swapping nuxt-client should not trigger errors #25289', async () => {
-    const mockPath = '/nuxt-client.js'
+  it('expect swapping v-load-client should not trigger errors #25289', async () => {
+    const mockPath = '/v-load-client.js'
     const componentId = 'Client-12345'
 
     vi.doMock(mockPath, () => ({
@@ -344,7 +344,7 @@ describe('client components', () => {
   })
 
   it('pass a slot to a client components within islands', async () => {
-    const mockPath = '/nuxt-client-with-slot.js'
+    const mockPath = '/v-load-client-with-slot.js'
     const componentId = 'ClientWithSlot-12345'
 
     vi.doMock(mockPath, () => ({
