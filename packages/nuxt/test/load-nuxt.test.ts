@@ -189,6 +189,53 @@ describe('loadNuxt', () => {
 
     await nuxt.close()
   })
+
+  it('applies global typescript.tsConfig compiler options to the nitro tsconfig', async () => {
+    const nuxt = await loadNuxt({
+      cwd: repoRoot,
+      ready: true,
+      overrides: {
+        typescript: { tsConfig: { compilerOptions: { noPropertyAccessFromIndexSignature: true } } },
+      },
+    })
+    const compilerOptions = (nuxt as any)._nitro?.options.typescript?.tsConfig?.compilerOptions ?? {}
+    expect(compilerOptions.noPropertyAccessFromIndexSignature).toBe(true)
+    await nuxt.close()
+  })
+
+  it('keeps typescript.serverTsConfig and nitro.typescript.tsConfig in sync', async () => {
+    const nuxt = await loadNuxt({
+      cwd: repoRoot,
+      ready: true,
+      overrides: {
+        typescript: {
+          tsConfig: { compilerOptions: { noPropertyAccessFromIndexSignature: true } },
+          serverTsConfig: { compilerOptions: { noPropertyAccessFromIndexSignature: false } },
+        },
+      },
+    })
+    expect(nuxt.options.nitro.typescript?.tsConfig).toBe(nuxt.options.typescript.serverTsConfig)
+    const compilerOptions = (nuxt as any)._nitro?.options.typescript?.tsConfig?.compilerOptions ?? {}
+    expect(compilerOptions.noPropertyAccessFromIndexSignature).toBe(false)
+    nuxt.options.typescript.serverTsConfig = { compilerOptions: { noEmit: false } }
+    expect(nuxt.options.nitro.typescript?.tsConfig).toBe(nuxt.options.typescript.serverTsConfig)
+    await nuxt.close()
+  })
+
+  it('prefers serverTsConfig over the deprecated nitro.typescript.tsConfig', async () => {
+    const nuxt = await loadNuxt({
+      cwd: repoRoot,
+      ready: true,
+      overrides: {
+        typescript: { serverTsConfig: { compilerOptions: { noUncheckedIndexedAccess: false } } },
+        nitro: { typescript: { tsConfig: { compilerOptions: { noUncheckedIndexedAccess: true, exactOptionalPropertyTypes: true } } } },
+      },
+    })
+    const compilerOptions = (nuxt as any)._nitro?.options.typescript?.tsConfig?.compilerOptions ?? {}
+    expect(compilerOptions.noUncheckedIndexedAccess).toBe(false)
+    expect(compilerOptions.exactOptionalPropertyTypes).toBe(true)
+    await nuxt.close()
+  })
 })
 
 const pagesDetectionTests: [test: string, overrides: NuxtConfig, result: NuxtConfig['pages']][] = [

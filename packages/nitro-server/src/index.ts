@@ -126,6 +126,12 @@ export async function bundle (nuxt: Nuxt & { _nitro?: Nitro }): Promise<void> {
   const mockProxy = resolveModulePath('mocked-exports/proxy', { from: import.meta.url })
 
   const nitroConfig: NitroConfig = defu(nuxt.options.nitro, {
+    typescript: {
+      tsConfig: {
+        compilerOptions: nuxt.options.typescript?.tsConfig?.compilerOptions ?? {},
+      },
+    },
+  } satisfies NitroConfig, {
     debug: nuxt.options.debug ? nuxt.options.debug.nitro : false,
     rootDir: nuxt.options.rootDir,
     workspaceDir: nuxt.options.workspaceDir,

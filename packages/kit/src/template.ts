@@ -370,10 +370,13 @@ export async function _generateTypes (nuxt: Nuxt): Promise<GenerateTypesReturn> 
 
   const isV5OrHigher = (nuxt.options.future?.compatibilityVersion ?? 4) >= 5
 
-  const userExclude = nuxt.options.typescript?.tsConfig?.exclude ?? []
+  const userExclude = [...(nuxt.options.typescript?.tsConfig?.exclude ?? []), ...(nuxt.options.typescript?.appTsConfig?.exclude ?? [])]
+
+  // `compilerOptions` from `typescript.tsConfig` are a baseline for every generated tsconfig
+  const globalCompilerOptions = nuxt.options.typescript?.tsConfig?.compilerOptions ?? {}
 
   // https://www.totaltypescript.com/tsconfig-cheat-sheet
-  const tsConfig: TSConfig = defu(nuxt.options.typescript?.tsConfig, {
+  const baseTsConfig: TSConfig = defu(nuxt.options.typescript?.tsConfig, {
     compilerOptions: {
       /* Base options: */
       esModuleInterop: true,
@@ -431,73 +434,75 @@ export async function _generateTypes (nuxt: Nuxt): Promise<GenerateTypesReturn> 
     exclude: [...exclude],
   } satisfies TSConfig)
 
+  const tsConfig: TSConfig = defu(nuxt.options.typescript?.appTsConfig, baseTsConfig)
+
   // This describes the environment where we load `nuxt.config.ts` (and modules)
-  const nodeTsConfig: TSConfig = defu(nuxt.options.typescript?.nodeTsConfig, {
+  const nodeTsConfig: TSConfig = defu(nuxt.options.typescript?.nodeTsConfig, { compilerOptions: globalCompilerOptions }, {
     compilerOptions: {
       /* Base options: */
-      esModuleInterop: tsConfig.compilerOptions?.esModuleInterop,
-      skipLibCheck: tsConfig.compilerOptions?.skipLibCheck,
-      target: tsConfig.compilerOptions?.target,
-      allowJs: tsConfig.compilerOptions?.allowJs,
-      allowImportingTsExtensions: tsConfig.compilerOptions?.allowImportingTsExtensions,
-      resolveJsonModule: tsConfig.compilerOptions?.resolveJsonModule,
-      moduleDetection: tsConfig.compilerOptions?.moduleDetection,
-      isolatedModules: tsConfig.compilerOptions?.isolatedModules,
-      verbatimModuleSyntax: tsConfig.compilerOptions?.verbatimModuleSyntax,
-      allowArbitraryExtensions: tsConfig.compilerOptions?.allowArbitraryExtensions,
+      esModuleInterop: baseTsConfig.compilerOptions?.esModuleInterop,
+      skipLibCheck: baseTsConfig.compilerOptions?.skipLibCheck,
+      target: baseTsConfig.compilerOptions?.target,
+      allowJs: baseTsConfig.compilerOptions?.allowJs,
+      allowImportingTsExtensions: baseTsConfig.compilerOptions?.allowImportingTsExtensions,
+      resolveJsonModule: baseTsConfig.compilerOptions?.resolveJsonModule,
+      moduleDetection: baseTsConfig.compilerOptions?.moduleDetection,
+      isolatedModules: baseTsConfig.compilerOptions?.isolatedModules,
+      verbatimModuleSyntax: baseTsConfig.compilerOptions?.verbatimModuleSyntax,
+      allowArbitraryExtensions: baseTsConfig.compilerOptions?.allowArbitraryExtensions,
       /* Strictness */
-      strict: tsConfig.compilerOptions?.strict,
-      noUncheckedIndexedAccess: tsConfig.compilerOptions?.noUncheckedIndexedAccess,
-      forceConsistentCasingInFileNames: tsConfig.compilerOptions?.forceConsistentCasingInFileNames,
-      noImplicitOverride: tsConfig.compilerOptions?.noImplicitOverride,
+      strict: baseTsConfig.compilerOptions?.strict,
+      noUncheckedIndexedAccess: baseTsConfig.compilerOptions?.noUncheckedIndexedAccess,
+      forceConsistentCasingInFileNames: baseTsConfig.compilerOptions?.forceConsistentCasingInFileNames,
+      noImplicitOverride: baseTsConfig.compilerOptions?.noImplicitOverride,
       /* If NOT transpiling with TypeScript: */
-      module: tsConfig.compilerOptions?.module,
+      module: baseTsConfig.compilerOptions?.module,
       noEmit: true,
       /* remove auto-scanning for types */
       types: [],
       /* add paths object for filling-in later */
       paths: {},
       /* Possibly consider removing the following in future */
-      moduleResolution: tsConfig.compilerOptions?.moduleResolution,
-      useDefineForClassFields: tsConfig.compilerOptions?.useDefineForClassFields,
-      noImplicitThis: tsConfig.compilerOptions?.noImplicitThis,
-      allowSyntheticDefaultImports: tsConfig.compilerOptions?.allowSyntheticDefaultImports,
+      moduleResolution: baseTsConfig.compilerOptions?.moduleResolution,
+      useDefineForClassFields: baseTsConfig.compilerOptions?.useDefineForClassFields,
+      noImplicitThis: baseTsConfig.compilerOptions?.noImplicitThis,
+      allowSyntheticDefaultImports: baseTsConfig.compilerOptions?.allowSyntheticDefaultImports,
     },
     include: [...nodeInclude],
     exclude: [...nodeExclude],
   } satisfies TSConfig)
 
   // This describes the environment where we load `nuxt.config.ts` (and modules)
-  const sharedTsConfig: TSConfig = defu(nuxt.options.typescript?.sharedTsConfig, {
+  const sharedTsConfig: TSConfig = defu(nuxt.options.typescript?.sharedTsConfig, { compilerOptions: globalCompilerOptions }, {
     compilerOptions: {
       /* Base options: */
-      esModuleInterop: tsConfig.compilerOptions?.esModuleInterop,
-      skipLibCheck: tsConfig.compilerOptions?.skipLibCheck,
-      target: tsConfig.compilerOptions?.target,
-      allowJs: tsConfig.compilerOptions?.allowJs,
-      allowImportingTsExtensions: tsConfig.compilerOptions?.allowImportingTsExtensions,
-      resolveJsonModule: tsConfig.compilerOptions?.resolveJsonModule,
-      moduleDetection: tsConfig.compilerOptions?.moduleDetection,
-      isolatedModules: tsConfig.compilerOptions?.isolatedModules,
-      verbatimModuleSyntax: tsConfig.compilerOptions?.verbatimModuleSyntax,
-      allowArbitraryExtensions: tsConfig.compilerOptions?.allowArbitraryExtensions,
+      esModuleInterop: baseTsConfig.compilerOptions?.esModuleInterop,
+      skipLibCheck: baseTsConfig.compilerOptions?.skipLibCheck,
+      target: baseTsConfig.compilerOptions?.target,
+      allowJs: baseTsConfig.compilerOptions?.allowJs,
+      allowImportingTsExtensions: baseTsConfig.compilerOptions?.allowImportingTsExtensions,
+      resolveJsonModule: baseTsConfig.compilerOptions?.resolveJsonModule,
+      moduleDetection: baseTsConfig.compilerOptions?.moduleDetection,
+      isolatedModules: baseTsConfig.compilerOptions?.isolatedModules,
+      verbatimModuleSyntax: baseTsConfig.compilerOptions?.verbatimModuleSyntax,
+      allowArbitraryExtensions: baseTsConfig.compilerOptions?.allowArbitraryExtensions,
       /* Strictness */
-      strict: tsConfig.compilerOptions?.strict,
-      noUncheckedIndexedAccess: tsConfig.compilerOptions?.noUncheckedIndexedAccess,
-      forceConsistentCasingInFileNames: tsConfig.compilerOptions?.forceConsistentCasingInFileNames,
-      noImplicitOverride: tsConfig.compilerOptions?.noImplicitOverride,
+      strict: baseTsConfig.compilerOptions?.strict,
+      noUncheckedIndexedAccess: baseTsConfig.compilerOptions?.noUncheckedIndexedAccess,
+      forceConsistentCasingInFileNames: baseTsConfig.compilerOptions?.forceConsistentCasingInFileNames,
+      noImplicitOverride: baseTsConfig.compilerOptions?.noImplicitOverride,
       /* If NOT transpiling with TypeScript: */
-      module: tsConfig.compilerOptions?.module,
+      module: baseTsConfig.compilerOptions?.module,
       noEmit: true,
       /* remove auto-scanning for types */
       types: [],
       /* add paths object for filling-in later */
       paths: {},
       /* Possibly consider removing the following in future */
-      moduleResolution: tsConfig.compilerOptions?.moduleResolution,
-      useDefineForClassFields: tsConfig.compilerOptions?.useDefineForClassFields,
-      noImplicitThis: tsConfig.compilerOptions?.noImplicitThis,
-      allowSyntheticDefaultImports: tsConfig.compilerOptions?.allowSyntheticDefaultImports,
+      moduleResolution: baseTsConfig.compilerOptions?.moduleResolution,
+      useDefineForClassFields: baseTsConfig.compilerOptions?.useDefineForClassFields,
+      noImplicitThis: baseTsConfig.compilerOptions?.noImplicitThis,
+      allowSyntheticDefaultImports: baseTsConfig.compilerOptions?.allowSyntheticDefaultImports,
     },
     include: [...sharedInclude],
     exclude: [...sharedExclude],
